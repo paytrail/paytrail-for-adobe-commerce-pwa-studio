@@ -15,12 +15,7 @@ import DEFAULT_OPERATIONS from './paytrail.gql';
  * @param {DocumentNode} props.operations.getPaytrailConfigQuery query to fetch config from backend
  * @param {DocumentNode} props.operations.setPaymentMethodOnCartMutation mutation to set paytrail as payment
  *
- * @returns {
- *  payableTo: String,
- *  mailingAddress: String,
- *  onBillingAddressChangedError: Function,
- *  onBillingAddressChangedSuccess: Function
- * }
+ * @returns {{onBillingAddressChangedError: ((function(): void)|*), onBillingAddressChangedSuccess: ((function(): void)|*), paytrailConfig: any}}
  */
 export const usePaytrail = props => {
     const operations = mergeOperations(DEFAULT_OPERATIONS, props.operations);
@@ -30,15 +25,18 @@ export const usePaytrail = props => {
         setPaymentMethodOnCartMutation
     } = operations;
 
-
-    const defaultIssuer = '3151';
-
     const [{cartId}] = useCartContext();
-    const {data} = useQuery(getPaytrailConfigQuery);
+    const [providerId, setProviderId] = useState('0');
+
+    const {
+        data: paytrailConfig,
+        error: paytrailConfigError,
+        loading: paytrailConfigLoading  // eslint-disable-line no-unused-vars
+    } = useQuery(getPaytrailConfigQuery, {
+        variables: {cartId}
+    });
+
     const {currentSelectedPaymentMethod: selectedMethod} = props;
-
-    const [issuer, setIssuer] = useState(defaultIssuer);
-
 
     const {resetShouldSubmit, onPaymentSuccess, onPaymentError} = props;
 
@@ -63,16 +61,9 @@ export const usePaytrail = props => {
      */
     const onBillingAddressChangedSuccess = useCallback(() => {
         updatePaymentMethod({
-            variables: {cartId, selectedMethod, issuer}
+            variables: {cartId, selectedMethod, providerId}
         });
-    }, [updatePaymentMethod, cartId, selectedMethod, issuer]);
-
-    const handleIssuerSelection = useCallback(
-        value => {
-            setIssuer(value);
-        },
-        [setIssuer]
-    );
+    }, [updatePaymentMethod, cartId, selectedMethod, providerId]);
 
     useEffect(() => {
         const paymentMethodMutationCompleted =
@@ -97,6 +88,7 @@ export const usePaytrail = props => {
     return {
         onBillingAddressChangedSuccess,
         onBillingAddressChangedError,
-        handleIssuerSelection
+        paytrailConfig,
+        setProviderId
     };
 };

@@ -59,9 +59,15 @@ export const useSuccessPage = props => {
             dismissable: true,
             timeout: 7000
         });
+        return {
+            flatData: [],
+            isSignedIn,
+            isLoading: false,
+            hasError: orderDetailsError
+        };
     }
 
-    if (!orderDetailsData || orderDetailsLoading) {
+    if (!orderDetailsData && orderDetailsLoading) {
         return {
             flatData: [],
             isSignedIn,

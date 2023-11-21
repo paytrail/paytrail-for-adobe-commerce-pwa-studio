@@ -8,9 +8,18 @@ export const PLACE_ORDER = gql`
         ) @connection(key: "placeOrder") {
             order {
                 order_number
-                paytrail_payment_url {
+                paytrail_payment_details {
                     payment_url
                     error
+                    payment_form {
+                        action
+                        method
+                        inputs {
+                            name
+                            value
+                            type
+                        }
+                    }
                 }
             }
         }

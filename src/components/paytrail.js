@@ -1,11 +1,10 @@
 import React from 'react';
-import { mergeClasses } from '@magento/venia-ui/lib/classify';
-import { shape, string, bool, func } from 'prop-types';
+import {mergeClasses} from '@magento/venia-ui/lib/classify';
+import {shape, string, bool, func} from 'prop-types';
 import BillingAddress from '@magento/venia-ui/lib/components/CheckoutPage/BillingAddress';
-
-import { usePaytrail } from '../talons/usePaytrail';
+import {usePaytrail} from '../talons/usePaytrail';
 import defaultClasses from './paytrail.css';
-import { FormattedMessage } from 'react-intl';
+import PaymentOptions from '@paytrail/paytrail-for-adobe-commerce-pwa-studio/src/components/paymentOptions/paymentOptions';
 
 /**
  * The Paytrail component renders all information to handle paytrail payment.
@@ -21,22 +20,24 @@ import { FormattedMessage } from 'react-intl';
 const Paytrail = props => {
     const classes = mergeClasses(defaultClasses, props.classes);
 
-    const {resetShouldSubmit,  onPaymentSuccess, onPaymentError } = props;
+    const {resetShouldSubmit, onPaymentSuccess, onPaymentError} = props;
     const addressTemplate = str => (
         <span key={str} className={classes.addressLine}>
-            {str} <br />
+            {str} <br/>
         </span>
     );
 
     const {
-        mailingAddress,
         onBillingAddressChangedError,
-        onBillingAddressChangedSuccess
+        onBillingAddressChangedSuccess,
+        paytrailConfig,
+        setProviderId
     } = usePaytrail({
         onPaymentSuccess,
         onPaymentError,
-        resetShouldSubmit
+        resetShouldSubmit,
     });
+
 
     return (
         <div className={classes.root}>
@@ -47,12 +48,17 @@ const Paytrail = props => {
                 onBillingAddressChangedSuccess={onBillingAddressChangedSuccess}
                 resetShouldSubmit={props.resetShouldSubmit}
             />
+
+            <PaymentOptions
+                setProviderId={setProviderId}
+                paytrailConfig={paytrailConfig}
+            />
         </div>
     );
 };
 
 Paytrail.propTypes = {
-    classes: shape({ root: string }),
+    classes: shape({root: string}),
     shouldSubmit: bool.isRequired,
     resetShouldSubmit: func.isRequired,
     onPaymentSuccess: func,

@@ -1,5 +1,5 @@
-
 import React, {useCallback, useEffect, useState} from 'react';
+import ReactDOM from 'react-dom';
 import {AlertCircle as AlertCircleIcon} from 'react-feather';
 
 import {useCartContext} from '@magento/peregrine/lib/context/cart';
@@ -98,17 +98,47 @@ const wrapUseCheckoutPage = (original) => {
                     if (result) {
                         const orderData = result.data;
                         const orderPaytrailUrlData =
-                            (orderData && orderData.placeOrder.order.paytrail_payment_url) || null;
+                            (orderData && orderData.placeOrder.order.paytrail_payment_details) || null;
 
                         if (orderPaytrailUrlData
                             && (orderPaytrailUrlData.payment_url || orderPaytrailUrlData.error)
                         ) {
                             const {
                                 error: paymentErrors,
-                                payment_url: paymentRedirectUrl
+                                payment_url: paymentRedirectUrl,
+                                payment_form: paymentForm
                             } = orderPaytrailUrlData;
 
-                            if (!paymentErrors && paymentRedirectUrl !== '') {
+                            if (paymentForm) {
+                                paymentForm
+                                let formId = 'paytrail-provider-' + paymentForm.name;
+                                const formElement = document.createElement('form');
+                                formElement.method = paymentForm.method;
+                                formElement.action = paymentForm.action;
+                                formElement.id = formId;
+
+                                paymentForm.inputs.forEach((input) => {
+                                    const inputElement = document.createElement('input');
+                                    inputElement.type = 'hidden';
+                                    inputElement.name = input.name;
+                                    inputElement.value = input.value;
+                                    formElement.appendChild(inputElement);
+                                });
+
+                                document.body.appendChild(formElement);
+                                // Get the form element from the DOM
+
+
+                                // Check if the form element is found before attempting to submit
+                                if (formElement) {
+                                    formElement.submit();
+                                } else {
+                                    console.error('Form element not found.');
+                                }
+
+                                return;
+
+                            } else if (!paymentErrors && paymentRedirectUrl !== '') {
                                 await removeCart();
                                 await clearCartDataFromCache(apolloClient);
                                 await createCart({
@@ -116,6 +146,7 @@ const wrapUseCheckoutPage = (original) => {
                                 });
 
                                 return window.location = paymentRedirectUrl;
+
                             } else {
                                 if (paymentErrors) {
                                     const restoredQuoteData = await restoreQuote({

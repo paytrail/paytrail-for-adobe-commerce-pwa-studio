@@ -1,0 +1,23 @@
+.group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin: 0 auto;
+    padding: 0 0 2rem 0;
+
+    .method {
+        width: 25%;
+        align-self: stretch;
+        display: flex;
+        border: 2px solid transparent;
+        text-align: center;
+
+        &.active {
+            border: 2px solid blue;
+        }
+
+        .method-svg {
+            padding: 5px;
+        }
+    }
+}
