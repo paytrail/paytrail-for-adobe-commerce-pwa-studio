@@ -1,5 +1,4 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import ReactDOM from 'react-dom';
 import {AlertCircle as AlertCircleIcon} from 'react-feather';
 
 import {useCartContext} from '@magento/peregrine/lib/context/cart';
@@ -9,7 +8,6 @@ import {useToasts} from '@magento/peregrine';
 
 import {
     useApolloClient,
-    useLazyQuery,
     useMutation
 } from '@apollo/client';
 
@@ -32,7 +30,6 @@ const wrapUseCheckoutPage = (original) => {
 
         const {
             createCartMutation,
-            getOrderDetailsQuery,
             restoreQuoteMutation,
             placePaytrailOrderMutation
         } = operations;
@@ -65,122 +62,110 @@ const wrapUseCheckoutPage = (original) => {
             }
         ] = useMutation(restoreQuoteMutation);
 
-        let [
-            getOrderDetails,
-            {
-                data: orderDetailsData,
-                loading: orderDetailsLoading
-            }
-        ] = useLazyQuery(getOrderDetailsQuery, {
-            fetchPolicy: 'no-cache'
-        });
-
         const handlePlaceOrder = useCallback(async () => {
             setOrderButtonPress(true);
-            getOrderDetails({
-                variables: {
-                    cartId
-                }
-            });
-        }, [cartId, getOrderDetails, setOrderButtonPress]);
+
+        }, [ setOrderButtonPress]);
 
         useEffect(() => {
             async function placeOrderAndCleanup() {
                 try {
+                    const processResult = async () => {
+                        setOrderButtonPress(false);
+                        const result = await placeOrder({
+                            variables: {
+                                cartId
+                            }
+                        });
+                        if (result) {
+                            const orderData = result.data;
+                            const orderPaytrailUrlData =
+                                (orderData && orderData.placeOrder.order.paytrail_payment_details) || null;
 
-                    setOrderButtonPress(false);
-                    const result = await placeOrder({
-                        variables: {
-                            cartId
-                        }
-                    });
+                            if (orderPaytrailUrlData
+                                && (orderPaytrailUrlData.payment_url || orderPaytrailUrlData.error)
+                            ) {
+                                const {
+                                    error: paymentErrors,
+                                    payment_url: paymentRedirectUrl,
+                                    payment_form: paymentForm
+                                } = orderPaytrailUrlData;
 
-                    if (result) {
-                        const orderData = result.data;
-                        const orderPaytrailUrlData =
-                            (orderData && orderData.placeOrder.order.paytrail_payment_details) || null;
+                                if (paymentForm) {
+                                    paymentForm
+                                    let formId = 'paytrail-provider-' + paymentForm.name;
+                                    const formElement = document.createElement('form');
+                                    formElement.method = paymentForm.method;
+                                    formElement.action = paymentForm.action;
+                                    formElement.id = formId;
+                                    formElement.hidden = true;
 
-                        if (orderPaytrailUrlData
-                            && (orderPaytrailUrlData.payment_url || orderPaytrailUrlData.error)
-                        ) {
-                            const {
-                                error: paymentErrors,
-                                payment_url: paymentRedirectUrl,
-                                payment_form: paymentForm
-                            } = orderPaytrailUrlData;
+                                    paymentForm.inputs.forEach((input) => {
+                                        const inputElement = document.createElement('input');
+                                        inputElement.type = 'text';
+                                        inputElement.name = input.name;
+                                        inputElement.value = input.value;
+                                        formElement.appendChild(inputElement);
+                                    });
 
-                            if (paymentForm) {
-                                paymentForm
-                                let formId = 'paytrail-provider-' + paymentForm.name;
-                                const formElement = document.createElement('form');
-                                formElement.method = paymentForm.method;
-                                formElement.action = paymentForm.action;
-                                formElement.id = formId;
-
-                                paymentForm.inputs.forEach((input) => {
-                                    const inputElement = document.createElement('input');
-                                    inputElement.type = 'hidden';
-                                    inputElement.name = input.name;
-                                    inputElement.value = input.value;
-                                    formElement.appendChild(inputElement);
-                                });
-
-                                document.body.appendChild(formElement);
-                                // Get the form element from the DOM
+                                    document.body.appendChild(formElement);
+                                    // Get the form element from the DOM
 
 
-                                // Check if the form element is found before attempting to submit
-                                if (formElement) {
-                                    formElement.submit();
+                                    // Check if the form element is found before attempting to submit
+                                    if (formElement) {
+                                        formElement.submit();
+                                    } else {
+                                        console.error('Form element not found.');
+                                    }
+
+                                } else if (!paymentErrors && paymentRedirectUrl !== '') {
+                                    await removeCart();
+                                    await clearCartDataFromCache(apolloClient);
+                                    await createCart({
+                                        fetchCartId
+                                    });
+
+                                    return window.location = paymentRedirectUrl;
+
                                 } else {
-                                    console.error('Form element not found.');
+                                    if (paymentErrors) {
+                                        const restoredQuoteData = await restoreQuote({
+                                            variables: {
+                                                cartId
+                                            }
+                                        });
+
+                                        if (restoredQuoteData) {
+                                            addToast({
+                                                type: 'error',
+                                                icon: errorIcon,
+                                                message: paymentErrors,
+                                                dismissable: true,
+                                                timeout: 7000
+                                            });
+
+                                            if (process.env.NODE_ENV !== 'production') {
+                                                console.error(paymentErrors);
+                                            }
+                                            resetReviewOrderButtonClicked();
+                                            setCheckoutStep(CHECKOUT_STEP.PAYMENT);
+                                        }
+                                    }
                                 }
-
-                                return;
-
-                            } else if (!paymentErrors && paymentRedirectUrl !== '') {
+                            } else {
                                 await removeCart();
                                 await clearCartDataFromCache(apolloClient);
+
                                 await createCart({
                                     fetchCartId
                                 });
-
-                                return window.location = paymentRedirectUrl;
-
-                            } else {
-                                if (paymentErrors) {
-                                    const restoredQuoteData = await restoreQuote({
-                                        variables: {
-                                            cartId
-                                        }
-                                    });
-
-                                    if (restoredQuoteData) {
-                                        addToast({
-                                            type: 'error',
-                                            icon: errorIcon,
-                                            message: paymentErrors,
-                                            dismissable: true,
-                                            timeout: 7000
-                                        });
-
-                                        if (process.env.NODE_ENV !== 'production') {
-                                            console.error(paymentErrors);
-                                        }
-                                        resetReviewOrderButtonClicked();
-                                        setCheckoutStep(CHECKOUT_STEP.PAYMENT);
-                                    }
-                                }
                             }
-                        } else {
-                            await removeCart();
-                            await clearCartDataFromCache(apolloClient);
-
-                            await createCart({
-                                fetchCartId
-                            });
                         }
                     }
+
+                    await processResult();
+
                 } catch (err) {
                     console.error(
                         'An error occurred during when placing the order',
@@ -191,7 +176,7 @@ const wrapUseCheckoutPage = (original) => {
                 }
             }
 
-            if (orderDetailsData && orderButtonPress) {
+            if (orderButtonPress) {
                 placeOrderAndCleanup();
             }
         }, [
@@ -199,7 +184,6 @@ const wrapUseCheckoutPage = (original) => {
             cartId,
             createCart,
             fetchCartId,
-            orderDetailsData,
             placeOrder,
             placeOrderCalled,
             removeCart,
@@ -225,8 +209,7 @@ const wrapUseCheckoutPage = (original) => {
             ...result,
             handlePlaceOrder,
             isLoading,
-            orderDetailsData,
-            orderDetailsLoading,
+
             orderNumber:
                 (placeOrderData && placeOrderData.placeOrder.order.order_number) ||
                 null,
