@@ -1,7 +1,7 @@
 {
   "name": "@paytrail/paytrail-for-adobe-commerce-pwa-studio",
   "author": "konrad.konieczny <konrad.konieczny@solteq.com>",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "main": "src/index.js",
   "pwa-studio": {
     "targets": {

@@ -67,8 +67,18 @@ const wrapUseCheckoutPage = (original) => {
 
         }, [ setOrderButtonPress]);
 
+        const refreshCart = async () => {
+            await removeCart();
+            await clearCartDataFromCache(apolloClient);
+
+            await createCart({
+                fetchCartId
+            });
+        }
+
         useEffect(() => {
             async function placeOrderAndCleanup() {
+
                 try {
                     const processResult = async () => {
                         setOrderButtonPress(false);
@@ -114,17 +124,16 @@ const wrapUseCheckoutPage = (original) => {
 
                                     // Check if the form element is found before attempting to submit
                                     if (formElement) {
+                                        await refreshCart();
+
                                         formElement.submit();
                                     } else {
                                         console.error('Form element not found.');
                                     }
 
                                 } else if (!paymentErrors && paymentRedirectUrl !== '') {
-                                    await removeCart();
-                                    await clearCartDataFromCache(apolloClient);
-                                    await createCart({
-                                        fetchCartId
-                                    });
+
+                                    await refreshCart();
 
                                     return window.location = paymentRedirectUrl;
 
